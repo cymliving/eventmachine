@@ -120,7 +120,7 @@ static void InitializeDefaultCredentials()
 SslContext_t::SslContext_t
 **************************/
 
-SslContext_t::SslContext_t (bool is_server, const string &privkeyfile, const string &certchainfile):
+SslContext_t::SslContext_t (bool is_server, const string &privkeyfile, const string &certchainfile, int ssl_version):
 	pCtx (NULL),
 	PrivateKey (NULL),
 	Certificate (NULL)
@@ -145,7 +145,22 @@ SslContext_t::SslContext_t (bool is_server, const string &privkeyfile, const str
 	}
 
 	bIsServer = is_server;
-	pCtx = SSL_CTX_new (is_server ? SSLv23_server_method() : SSLv23_client_method());
+
+	switch(ssl_version) {
+		/* SSLv23 */
+	case 0:
+		pCtx = SSL_CTX_new (is_server ? SSLv23_server_method() : SSLv23_client_method());
+		break;
+		/* SSLv3 */
+	case 1:
+		pCtx = SSL_CTX_new (is_server ? SSLv3_server_method() : SSLv3_client_method());
+		break;
+		/* TLSv1 */
+	case 2:
+		pCtx = SSL_CTX_new (is_server ? TLSv1_server_method() : TLSv1_client_method());
+		break;
+	};
+
 	if (!pCtx)
 		throw std::runtime_error ("no SSL context");
 
@@ -216,10 +231,11 @@ SslContext_t::~SslContext_t()
 SslBox_t::SslBox_t
 ******************/
 
-SslBox_t::SslBox_t (bool is_server, const string &privkeyfile, const string &certchainfile, bool verify_peer, const unsigned long binding):
+SslBox_t::SslBox_t (bool is_server, const string &privkeyfile, const string &certchainfile, bool verify_peer, int ssl_version, const unsigned long binding):
 	bIsServer (is_server),
 	bHandshakeCompleted (false),
 	bVerifyPeer (verify_peer),
+	bSslVersion (ssl_version),
 	pSSL (NULL),
 	pbioRead (NULL),
 	pbioWrite (NULL)
@@ -228,7 +244,7 @@ SslBox_t::SslBox_t (bool is_server, const string &privkeyfile, const string &cer
 	 * a new one every time we come here.
 	 */
 
-	Context = new SslContext_t (bIsServer, privkeyfile, certchainfile);
+	Context = new SslContext_t (bIsServer, privkeyfile, certchainfile, ssl_version);
 	assert (Context);
 
 	pbioRead = BIO_new (BIO_s_mem());
